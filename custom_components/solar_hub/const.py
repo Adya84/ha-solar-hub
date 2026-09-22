@@ -17,3 +17,4 @@ FRONTEND_PATH = Path(__file__).parent / "frontend"
 
 WS_OVERVIEW = "solar_hub/overview"
 WS_PREDBAT = "solar_hub/predbat"
+WS_DEEP_SCAN = "solar_hub/deep_scan"

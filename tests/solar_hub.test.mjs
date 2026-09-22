@@ -47,11 +47,22 @@ test("Solar Hub keeps deep scans separate from live refreshes", async () => {
   assert.match(coordinator, /"state": "failed"/);
 });
 
+test("dashboard can trigger its optional deep scan", async () => {
+  const websocket = await text("custom_components/solar_hub/websocket.py");
+  const constants = await text("custom_components/solar_hub/const.py");
+  assert.match(constants, /WS_DEEP_SCAN = "solar_hub\/deep_scan"/);
+  assert.match(websocket, /WS_DEEP_SCAN/);
+  assert.match(websocket, /async_deep_scan\(\)/);
+});
+
 test("dashboard has the Solar Hub primary tabs", async () => {
   const ui = await text("custom_components/solar_hub/frontend/solar-hub-panel.js");
   for (const label of ["Overview", "Solar", "Battery", "Grid", "EV", "PredBat", "History", "Settings"]) {
     assert.match(ui, new RegExp(label));
   }
+  assert.match(ui, /_predbatTimeline\(/);
+  assert.match(ui, /NEXT 24 HOURS/);
+  assert.match(ui, /Deep Modbus scan/);
 });
 
 test("repository contains no legacy component folder", async () => {
