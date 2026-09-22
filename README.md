@@ -42,6 +42,10 @@ Add this repository as a custom **Integration** repository:
 
 Solar Hub is provider-based. Manufacturer-specific code lives under `providers/`, while the entity and dashboard layers consume a shared normalised snapshot. This keeps future inverter manufacturers independent from the frontend.
 
+## Release channel
+
+Development releases are published as GitHub prereleases using beta version numbers.
+
 ## Licence
 
 MIT.
