@@ -55,6 +55,12 @@ test("dashboard can trigger its optional deep scan", async () => {
   assert.match(websocket, /async_deep_scan\(\)/);
 });
 
+test("PredBat snapshot exposes a dashboard-friendly plan payload", async () => {
+  const predbat = await text("custom_components/solar_hub/predbat.py");
+  assert.match(predbat, /"current_action"/);
+  assert.match(predbat, /"plan_segments"/);
+});
+
 test("dashboard has the Solar Hub primary tabs", async () => {
   const ui = await text("custom_components/solar_hub/frontend/solar-hub-panel.js");
   for (const label of ["Overview", "Solar", "Battery", "Grid", "EV", "PredBat", "History", "Settings"]) {
