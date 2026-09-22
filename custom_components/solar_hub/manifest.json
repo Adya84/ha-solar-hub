@@ -1,0 +1,14 @@
+{
+  "domain": "solar_hub",
+  "name": "Solar Hub",
+  "codeowners": ["@Adya84"],
+  "config_flow": true,
+  "dependencies": ["frontend", "http", "panel_custom"],
+  "documentation": "https://github.com/Adya84/ha-solar-hub",
+  "integration_type": "hub",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/Adya84/ha-solar-hub/issues",
+  "requirements": ["givenergy-modbus==2.13.0"],
+  "single_config_entry": true,
+  "version": "0.1.0-beta.1"
+}

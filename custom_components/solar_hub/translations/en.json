@@ -1,0 +1,17 @@
+{
+  "title": "Solar Hub",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect Solar Hub",
+        "description": "Enter the local IP address of your inverter or data adapter. Solar Hub will scan the system automatically.",
+        "data": {
+          "host": "Inverter IP address"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not connect to the inverter. Check the IP address and local network access."
+    }
+  }
+}

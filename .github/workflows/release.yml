@@ -1,0 +1,35 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  beta:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run project tests
+        run: node --test tests/*.test.mjs
+      - name: HACS validation
+        uses: hacs/action@main
+        with:
+          category: integration
+          ignore: topics
+      - name: Hassfest validation
+        uses: home-assistant/actions/hassfest@master
+      - name: Publish beta
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          VERSION="$(python -c 'import json; print(json.load(open("custom_components/solar_hub/manifest.json"))["version"])')"
+          gh release view "$VERSION" >/dev/null 2>&1 || \
+            gh release create "$VERSION" --target "$GITHUB_SHA" --title "Solar Hub $VERSION" --prerelease --generate-notes
