@@ -17,5 +17,13 @@ class SolarProvider(ABC):
         """Return a fresh normalised snapshot."""
 
     @abstractmethod
+    async def async_deep_scan(self) -> dict[str, Any]:
+        """Read extended, on-demand hardware details."""
+
+    @abstractmethod
+    async def async_set_control(self, key: str, value: Any) -> None:
+        """Write a known supported control."""
+
+    @abstractmethod
     async def async_close(self) -> None:
         """Close provider resources."""

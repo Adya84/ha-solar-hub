@@ -35,6 +35,10 @@ test("provider architecture is separate from the dashboard", async () => {
   for (const key of ["pv_string_count", "battery_count", "controls"]) {
     assert.match(provider, new RegExp(key));
   }
+  assert.match(base, /async def async_deep_scan/);
+  assert.match(base, /async def async_set_control/);
+  assert.match(provider, /async def async_deep_scan/);
+  assert.match(provider, /async def async_set_control/);
 });
 
 test("dashboard has the Solar Hub primary tabs", async () => {

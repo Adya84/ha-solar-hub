@@ -20,6 +20,14 @@ class HardwareProfile:
     battery_count: int = 0
     batteries: list[dict[str, Any]] = field(default_factory=list)
     controls: dict[str, bool] = field(default_factory=dict)
+    deep_data: dict[str, Any] = field(default_factory=dict)
+    deep_scan: dict[str, Any] = field(
+        default_factory=lambda: {
+            "state": "not_run",
+            "completed_at": None,
+            "error": None,
+        }
+    )
 
     def as_dict(self) -> dict[str, Any]:
         """Return a JSON-safe dictionary."""
