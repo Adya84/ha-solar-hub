@@ -7,7 +7,7 @@ permissions:
   contents: write
 
 jobs:
-  beta:
+  release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -25,11 +25,11 @@ jobs:
           ignore: topics
       - name: Hassfest validation
         uses: home-assistant/actions/hassfest@master
-      - name: Publish beta
+      - name: Publish stable
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           VERSION="$(python -c 'import json; print(json.load(open("custom_components/solar_hub/manifest.json"))["version"])')"
           gh release view "$VERSION" >/dev/null 2>&1 || \
-            gh release create "$VERSION" --target "$GITHUB_SHA" --title "Solar Hub $VERSION" --prerelease --generate-notes
+            gh release create "$VERSION" --target "$GITHUB_SHA" --title "Solar Hub $VERSION" --generate-notes

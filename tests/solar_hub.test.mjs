@@ -6,11 +6,17 @@ async function text(path) {
   return readFile(new URL(`../${path}`, import.meta.url), "utf8");
 }
 
-test("manifest is Solar Hub beta", async () => {
+test("manifest is the first stable Solar Hub release", async () => {
   const manifest = JSON.parse(await text("custom_components/solar_hub/manifest.json"));
   assert.equal(manifest.domain, "solar_hub");
   assert.equal(manifest.name, "Solar Hub");
-  assert.match(manifest.version, /^\d+\.\d+\.\d+-beta\.\d+$/);
+  assert.equal(manifest.version, "0.0.1");
+});
+
+test("release workflow publishes a stable release", async () => {
+  const workflow = await text(".github/workflows/release.yml");
+  assert.match(workflow, /Publish stable/);
+  assert.doesNotMatch(workflow, /--prerelease/);
 });
 
 test("normal setup asks only for inverter IP", async () => {
