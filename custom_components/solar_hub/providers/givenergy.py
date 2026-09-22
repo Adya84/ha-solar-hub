@@ -69,9 +69,60 @@ class GivEnergyProvider(SolarProvider):
     async def async_refresh(self) -> dict[str, Any]:
         return self._normalise(await self._refresh_plant())
 
+    async def async_deep_scan(self) -> dict[str, Any]:
+        """Read the extended fields exposed by the detected battery BMSes."""
+        snapshot = self._normalise(await self._refresh_plant())
+        plant = await self._refresh_plant()
+        batteries = list(_read(plant, "batteries", default=[]) or [])
+        if not batteries:
+            batteries = list(_read(plant, "aio_battery_modules", default=[]) or [])
+        snapshot["system_profile"]["deep_data"] = {
+            "batteries": self._deep_battery_data(batteries),
+        }
+        snapshot["system_profile"]["deep_scan"] = {
+            "state": "completed",
+            "completed_at": datetime.now(timezone.utc).isoformat(),
+            "error": None,
+        }
+        return snapshot
+
+    async def async_set_control(self, key: str, value: Any) -> None:
+        """Reject writes until a verified register mapping is available."""
+        raise ValueError(f"Solar Hub cannot safely write '{key}' on this inverter yet")
+
     async def async_close(self) -> None:
         await self._client.close()
         self._detected = False
+
+    @staticmethod
+    def _deep_battery_data(batteries: list[Any]) -> list[dict[str, Any]]:
+        """Return only battery fields genuinely provided by the BMS object."""
+        details: list[dict[str, Any]] = []
+        for index, battery in enumerate(batteries, start=1):
+            detail: dict[str, Any] = {
+                "index": index,
+                "serial": _plain(_read(battery, "serial_number", "serial")),
+            }
+            for key, names in {
+                "cycles": ("num_cycles",),
+                "capacity_ah": ("cap_design", "cap_design2"),
+                "temperature_min": ("t_min",),
+                "temperature_max": ("t_max",),
+                "bms_firmware": ("bms_firmware_version",),
+            }.items():
+                value = _read(battery, *names)
+                if value is not None:
+                    detail[key] = _plain(value)
+            cells = []
+            cell_count = _read(battery, "num_cells")
+            for cell in range(1, int(cell_count or 0) + 1):
+                voltage = _read(battery, f"v_cell_{cell}", f"cell_{cell}_voltage")
+                if voltage is not None:
+                    cells.append({"index": cell, "voltage": _plain(voltage)})
+            if cells:
+                detail["cells"] = cells
+            details.append(detail)
+        return details
 
     def _normalise(self, plant: Any) -> dict[str, Any]:
         inverter = _read(plant, "gateway") or _read(plant, "inverter")
