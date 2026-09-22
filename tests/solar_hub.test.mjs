@@ -41,6 +41,12 @@ test("provider architecture is separate from the dashboard", async () => {
   assert.match(provider, /async def async_set_control/);
 });
 
+test("Solar Hub keeps deep scans separate from live refreshes", async () => {
+  const coordinator = await text("custom_components/solar_hub/coordinator.py");
+  assert.match(coordinator, /async def async_deep_scan/);
+  assert.match(coordinator, /"state": "failed"/);
+});
+
 test("dashboard has the Solar Hub primary tabs", async () => {
   const ui = await text("custom_components/solar_hub/frontend/solar-hub-panel.js");
   for (const label of ["Overview", "Solar", "Battery", "Grid", "EV", "PredBat", "History", "Settings"]) {
