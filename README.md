@@ -4,7 +4,7 @@ Solar Hub is a clean, tablet-first Home Assistant integration for solar, battery
 
 ## Current release
 
-`0.0.4-beta.2`
+`0.0.4-beta.3`
 
 ## First provider
 

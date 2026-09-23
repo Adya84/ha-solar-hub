@@ -10,7 +10,7 @@ test("manifest is the current stable Solar Hub release", async () => {
   const manifest = JSON.parse(await text("custom_components/solar_hub/manifest.json"));
   assert.equal(manifest.domain, "solar_hub");
   assert.equal(manifest.name, "Solar Hub");
-  assert.equal(manifest.version, "0.0.4-beta.2");
+  assert.equal(manifest.version, "0.0.4-beta.3");
 });
 
 test("release workflow supports normal stable releases", async () => {

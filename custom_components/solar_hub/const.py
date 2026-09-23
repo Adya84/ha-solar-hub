@@ -3,7 +3,7 @@ from pathlib import Path
 
 DOMAIN = "solar_hub"
 NAME = "Solar Hub"
-VERSION = "0.0.4-beta.2"
+VERSION = "0.0.4-beta.3"
 
 CONF_HOST = "host"
 CONF_PORT = "port"
