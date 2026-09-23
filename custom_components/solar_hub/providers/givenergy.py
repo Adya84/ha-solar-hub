@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
-from givenergy_modbus.client import Client
+from givenergy_modbus.client.client import Client
 
 from ..models import HardwareProfile
 from .base import SolarProvider

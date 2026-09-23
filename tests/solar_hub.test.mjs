@@ -10,7 +10,7 @@ test("manifest is the current stable Solar Hub release", async () => {
   const manifest = JSON.parse(await text("custom_components/solar_hub/manifest.json"));
   assert.equal(manifest.domain, "solar_hub");
   assert.equal(manifest.name, "Solar Hub");
-  assert.equal(manifest.version, "0.0.2");
+  assert.equal(manifest.version, "0.0.3");
 });
 
 test("release workflow supports normal stable releases", async () => {
@@ -31,6 +31,7 @@ test("provider architecture is separate from the dashboard", async () => {
   const base = await text("custom_components/solar_hub/providers/base.py");
   const provider = await text("custom_components/solar_hub/providers/givenergy.py");
   assert.match(base, /class SolarProvider/);
+  assert.match(provider, /from givenergy_modbus\.client\.client import Client/);
   assert.match(provider, /HardwareProfile/);
   for (const key of ["pv_string_count", "battery_count", "controls"]) {
     assert.match(provider, new RegExp(key));
