@@ -10,7 +10,7 @@ test("manifest is the current stable Solar Hub release", async () => {
   const manifest = JSON.parse(await text("custom_components/solar_hub/manifest.json"));
   assert.equal(manifest.domain, "solar_hub");
   assert.equal(manifest.name, "Solar Hub");
-  assert.equal(manifest.version, "0.0.4-beta.4");
+  assert.equal(manifest.version, "0.0.4-beta.5");
 });
 
 test("release workflow supports normal stable releases", async () => {
@@ -40,6 +40,17 @@ test("provider architecture is separate from the dashboard", async () => {
   assert.match(base, /async def async_set_control/);
   assert.match(provider, /async def async_deep_scan/);
   assert.match(provider, /async def async_set_control/);
+});
+
+test("a completed hardware scan survives Home Assistant restarts", async () => {
+  const setup = await text("custom_components/solar_hub/__init__.py");
+  const coordinator = await text("custom_components/solar_hub/coordinator.py");
+  assert.match(setup, /Store\(hass, 1, f"\{DOMAIN\}\.\{entry\.entry_id\}"\)/);
+  assert.match(setup, /cached_snapshot = await store\.async_load\(\)/);
+  assert.match(setup, /coordinator\.async_restore_snapshot\(cached_snapshot\)/);
+  assert.match(setup, /hass\.async_create_task\(coordinator\.async_request_refresh\(\)\)/);
+  assert.match(coordinator, /def async_restore_snapshot/);
+  assert.match(coordinator, /async_delay_save/);
 });
 
 test("Solar Hub keeps deep scans separate from live refreshes", async () => {

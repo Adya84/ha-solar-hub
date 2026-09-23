@@ -8,6 +8,7 @@ import logging
 from typing import Any
 
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
@@ -19,7 +20,13 @@ _LOGGER = logging.getLogger(__name__)
 class SolarHubCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Own provider refreshes and preserve the last good snapshot."""
 
-    def __init__(self, hass: HomeAssistant, host: str, port: int) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        host: str,
+        port: int,
+        store: Store[dict[str, Any]] | None = None,
+    ) -> None:
         super().__init__(
             hass,
             _LOGGER,
@@ -27,6 +34,7 @@ class SolarHubCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
         )
         self.provider = GivEnergyProvider(host, port)
+        self._store = store
         self._last_good: dict[str, Any] | None = None
         self._deep_profile: dict[str, Any] = {}
 
@@ -34,8 +42,20 @@ class SolarHubCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Perform the initial capability scan."""
         data = await self.provider.async_scan()
         self._attach_deep_profile(data)
-        self._last_good = data
+        self._remember_snapshot(data)
         return data
+
+    def async_restore_snapshot(self, snapshot: dict[str, Any]) -> None:
+        """Restore the last known sensor layout before reconnecting to the inverter."""
+        restored = deepcopy(snapshot)
+        restored["connection"] = {
+            **restored.get("connection", {}),
+            "state": "connecting",
+            "stale": True,
+        }
+        self._last_good = restored
+        self._deep_profile = deepcopy(restored.get("system_profile", {}))
+        self.async_set_updated_data(restored)
 
     async def async_deep_scan(self) -> dict[str, Any]:
         """Run the user-requested extended hardware scan outside live polling."""
@@ -71,7 +91,7 @@ class SolarHubCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.async_set_updated_data(current)
             return current
         self._deep_profile = deepcopy(scanned.get("system_profile", {}))
-        self._last_good = scanned
+        self._remember_snapshot(scanned)
         self.async_set_updated_data(scanned)
         return scanned
 
@@ -79,7 +99,7 @@ class SolarHubCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         try:
             data = await self.provider.async_refresh()
             self._attach_deep_profile(data)
-            self._last_good = data
+            self._remember_snapshot(data)
             return data
         except Exception as err:
             if self._last_good is None:
@@ -101,6 +121,12 @@ class SolarHubCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         for key in ("deep_data", "deep_scan"):
             if key in self._deep_profile:
                 profile[key] = deepcopy(self._deep_profile[key])
+
+    def _remember_snapshot(self, data: dict[str, Any]) -> None:
+        """Keep the discovered layout and last values across Home Assistant restarts."""
+        self._last_good = deepcopy(data)
+        if self._store is not None:
+            self._store.async_delay_save(lambda: deepcopy(self._last_good), 1)
 
     async def async_close(self) -> None:
         """Close the provider."""

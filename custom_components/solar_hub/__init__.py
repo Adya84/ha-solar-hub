@@ -9,6 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.storage import Store
 
 from .const import (
     CONF_HOST,
@@ -46,12 +47,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     host = str(entry.data[CONF_HOST]).strip()
     port = int(entry.data.get(CONF_PORT, DEFAULT_PORT))
 
-    coordinator = SolarHubCoordinator(hass, host, port)
-    first = await coordinator.async_scan()
-    coordinator.async_set_updated_data(first)
+    store = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}")
+    cached_snapshot = await store.async_load()
+    coordinator = SolarHubCoordinator(hass, host, port, store)
+    if isinstance(cached_snapshot, dict):
+        coordinator.async_restore_snapshot(cached_snapshot)
+    else:
+        first = await coordinator.async_scan()
+        coordinator.async_set_updated_data(first)
 
     hass.data[DOMAIN][entry.entry_id] = {"coordinator": coordinator}
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    if isinstance(cached_snapshot, dict):
+        hass.async_create_task(coordinator.async_request_refresh())
 
     frontend.async_remove_panel(hass, PANEL_URL)
     await panel_custom.async_register_panel(
