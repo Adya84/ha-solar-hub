@@ -79,6 +79,8 @@ test("dashboard has the Solar Hub primary tabs", async () => {
   assert.match(ui, /Deep Modbus scan/);
   assert.match(ui, /takes up to two minutes/);
   assert.match(ui, /scan-progress/);
+  assert.match(ui, /battery-section/);
+  assert.match(ui, /Battery \$\{index\} cells/);
   assert.match(ui, /metric\.unit === "kWh"/);
   assert.match(ui, /toFixed\(1\)/);
 });
