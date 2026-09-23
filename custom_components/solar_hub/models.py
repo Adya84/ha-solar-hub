@@ -24,6 +24,8 @@ class HardwareProfile:
     deep_scan: dict[str, Any] = field(
         default_factory=lambda: {
             "state": "not_run",
+            "progress": 0,
+            "stage": "Not run",
             "completed_at": None,
             "error": None,
         }

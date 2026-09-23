@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Callable
 
 
 class SolarProvider(ABC):
@@ -17,7 +17,7 @@ class SolarProvider(ABC):
         """Return a fresh normalised snapshot."""
 
     @abstractmethod
-    async def async_deep_scan(self) -> dict[str, Any]:
+    async def async_deep_scan(self, progress: Callable[[int, str], None] | None = None) -> dict[str, Any]:
         """Read extended, on-demand hardware details."""
 
     @abstractmethod

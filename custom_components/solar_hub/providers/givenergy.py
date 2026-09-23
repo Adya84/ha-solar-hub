@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Any, Callable
 
 from givenergy_modbus.client.client import Client
 
@@ -69,21 +69,52 @@ class GivEnergyProvider(SolarProvider):
     async def async_refresh(self) -> dict[str, Any]:
         return self._normalise(await self._refresh_plant())
 
-    async def async_deep_scan(self) -> dict[str, Any]:
-        """Read the extended fields exposed by the detected battery BMSes."""
-        snapshot = self._normalise(await self._refresh_plant())
-        plant = await self._refresh_plant()
+    async def async_deep_scan(self, progress: Callable[[int, str], None] | None = None) -> dict[str, Any]:
+        """Perform a deliberate, complete BMS pass outside the live refresh loop.
+
+        The ordinary poll is intentionally lightweight.  This pass first fetches the
+        inverter configuration blocks and then reads every detected battery's input
+        register bank in sequence.  The battery bank contains the individual cell
+        voltages and BMS health fields, so it may take a little while on a busy bus.
+        """
+        self._report_progress(progress, 5, "Connecting to inverter")
+        await self._ensure_ready()
+        self._report_progress(progress, 20, "Reading inverter configuration")
+        # The inverter serialises Modbus traffic and GivTCP/PredBat may be polling
+        # at the same time.  A patient timeout and short retry delay make this an
+        # actual complete BMS pass without affecting normal live updates.
+        warnings: list[str] = []
+        try:
+            await self._client.load_config(timeout=5.0, retries=1, retry_delay=0.75)
+        except Exception as err:
+            if getattr(err, "plant", None) is None:
+                raise
+            warnings.append("Some inverter configuration registers did not respond")
+        self._report_progress(progress, 45, "Reading battery BMS registers")
+        try:
+            plant = await self._client.refresh(timeout=5.0, retries=1, retry_delay=0.75)
+        except Exception as err:
+            plant = getattr(err, "plant", None)
+            if plant is None:
+                raise
+            warnings.append("Some BMS registers did not respond")
+        self._report_progress(progress, 85, "Decoding cell voltages and battery health")
+        snapshot = self._normalise(plant)
         batteries = list(_read(plant, "batteries", default=[]) or [])
         if not batteries:
             batteries = list(_read(plant, "aio_battery_modules", default=[]) or [])
-        snapshot["system_profile"]["deep_data"] = {
-            "batteries": self._deep_battery_data(batteries),
-        }
+        batteries = self._deep_battery_data(batteries)
+        if not batteries or not any(item.get("cells") for item in batteries):
+            raise RuntimeError("No battery cell readings were returned by the BMS")
+        snapshot["system_profile"]["deep_data"] = {"batteries": batteries}
         snapshot["system_profile"]["deep_scan"] = {
-            "state": "completed",
+            "state": "completed_with_warnings" if warnings else "completed",
+            "progress": 100,
+            "stage": "Complete with warnings" if warnings else "Complete",
             "completed_at": datetime.now(timezone.utc).isoformat(),
-            "error": None,
+            "error": "; ".join(warnings) if warnings else None,
         }
+        self._report_progress(progress, 100, "Complete")
         return snapshot
 
     async def async_set_control(self, key: str, value: Any) -> None:
@@ -106,23 +137,55 @@ class GivEnergyProvider(SolarProvider):
             for key, names in {
                 "cycles": ("num_cycles",),
                 "capacity_ah": ("cap_design", "cap_design2"),
+                "capacity_remaining_ah": ("cap_remaining",),
                 "temperature_min": ("t_min",),
                 "temperature_max": ("t_max",),
+                "bms_temperature": ("t_bms_mosfet",),
                 "bms_firmware": ("bms_firmware_version",),
+                "lifetime_charge_kwh": ("e_battery_charge_total",),
+                "lifetime_discharge_kwh": ("e_battery_discharge_total",),
             }.items():
                 value = _read(battery, *names)
                 if value is not None:
                     detail[key] = _plain(value)
             cells = []
-            cell_count = _read(battery, "num_cells")
-            for cell in range(1, int(cell_count or 0) + 1):
-                voltage = _read(battery, f"v_cell_{cell}", f"cell_{cell}_voltage")
+            cell_count = _read(battery, "num_cells") or 24
+            for cell in range(1, int(cell_count) + 1):
+                voltage = _read(battery, f"v_cell_{cell:02d}", f"v_cell_{cell}", f"cell_{cell}_voltage")
                 if voltage is not None:
-                    cells.append({"index": cell, "voltage": _plain(voltage)})
+                    cells.append(
+                        {
+                            "index": cell,
+                            "voltage": _plain(voltage),
+                            "status": GivEnergyProvider._cell_voltage_status(voltage),
+                        }
+                    )
             if cells:
                 detail["cells"] = cells
             details.append(detail)
         return details
+
+    @staticmethod
+    def _cell_voltage_status(voltage: Any) -> str:
+        """Classify a LiFePO4 cell reading for the tablet dashboard.
+
+        These are display-only alert bands, not a battery-management decision. The
+        BMS remains the authority for protection and balancing.
+        """
+        try:
+            value = float(voltage)
+        except (TypeError, ValueError):
+            return "unknown"
+        if 3.10 <= value <= 3.50:
+            return "good"
+        if 3.00 <= value <= 3.60:
+            return "warning"
+        return "critical"
+
+    @staticmethod
+    def _report_progress(progress: Callable[[int, str], None] | None, percent: int, stage: str) -> None:
+        if progress is not None:
+            progress(percent, stage)
 
     def _normalise(self, plant: Any) -> dict[str, Any]:
         inverter = _read(plant, "gateway") or _read(plant, "inverter")

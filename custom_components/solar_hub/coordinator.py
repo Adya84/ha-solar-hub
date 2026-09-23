@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from datetime import timedelta
+import asyncio
 import logging
 from typing import Any
 
@@ -40,13 +41,30 @@ class SolarHubCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Run the user-requested extended hardware scan outside live polling."""
         current = deepcopy(self.data or self._last_good or {})
         profile = current.setdefault("system_profile", {})
-        profile["deep_scan"] = {"state": "running", "completed_at": None, "error": None}
+        profile["deep_scan"] = {
+            "state": "running",
+            "progress": 0,
+            "stage": "Preparing scan",
+            "completed_at": None,
+            "error": None,
+        }
         self.async_set_updated_data(current)
+        def report(progress: int, stage: str) -> None:
+            profile["deep_scan"] = {
+                "state": "running",
+                "progress": progress,
+                "stage": stage,
+                "completed_at": None,
+                "error": None,
+            }
+            self.async_set_updated_data(current)
         try:
-            scanned = await self.provider.async_deep_scan()
+            scanned = await asyncio.wait_for(self.provider.async_deep_scan(report), timeout=120)
         except Exception as err:
             profile["deep_scan"] = {
                 "state": "failed",
+                "progress": 0,
+                "stage": "Failed",
                 "completed_at": None,
                 "error": err.__class__.__name__,
             }

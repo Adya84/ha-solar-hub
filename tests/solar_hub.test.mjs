@@ -10,7 +10,7 @@ test("manifest is the current stable Solar Hub release", async () => {
   const manifest = JSON.parse(await text("custom_components/solar_hub/manifest.json"));
   assert.equal(manifest.domain, "solar_hub");
   assert.equal(manifest.name, "Solar Hub");
-  assert.equal(manifest.version, "0.0.3");
+  assert.equal(manifest.version, "0.0.4-beta.1");
 });
 
 test("release workflow supports normal stable releases", async () => {
@@ -44,8 +44,15 @@ test("provider architecture is separate from the dashboard", async () => {
 
 test("Solar Hub keeps deep scans separate from live refreshes", async () => {
   const coordinator = await text("custom_components/solar_hub/coordinator.py");
+  const provider = await text("custom_components/solar_hub/providers/givenergy.py");
   assert.match(coordinator, /async def async_deep_scan/);
   assert.match(coordinator, /"state": "failed"/);
+  assert.match(coordinator, /asyncio\.wait_for\(self\.provider\.async_deep_scan\(report\), timeout=120\)/);
+  assert.match(coordinator, /"progress": progress/);
+  const deepScan = provider.slice(provider.indexOf("async def async_deep_scan"), provider.indexOf("async def async_set_control"));
+  assert.match(deepScan, /await self\._client\.load_config\(timeout=5\.0, retries=1, retry_delay=0\.75\)/);
+  assert.match(deepScan, /await self\._client\.refresh\(timeout=5\.0, retries=1, retry_delay=0\.75\)/);
+  assert.match(provider, /f"v_cell_\{cell:02d\}"/);
 });
 
 test("dashboard can trigger its optional deep scan", async () => {
@@ -70,6 +77,10 @@ test("dashboard has the Solar Hub primary tabs", async () => {
   assert.match(ui, /_predbatTimeline\(/);
   assert.match(ui, /NEXT 24 HOURS/);
   assert.match(ui, /Deep Modbus scan/);
+  assert.match(ui, /takes up to two minutes/);
+  assert.match(ui, /scan-progress/);
+  assert.match(ui, /metric\.unit === "kWh"/);
+  assert.match(ui, /toFixed\(1\)/);
 });
 
 test("repository contains no legacy component folder", async () => {
